@@ -8,6 +8,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "../../constants/colors";
 import { dataStore } from "../../data/mockData";
+import { Image } from "react-native";
 
 const QUICK_AMOUNTS = [1000, 2000, 5000, 10000, 20000];
 
@@ -136,14 +137,15 @@ export default function RechargeTab() {
           <Text style={[styles.sectionTitle, { marginTop: 8 }]}>Méthode de paiement</Text>
           <View style={styles.paymentCard}>
             <View style={styles.paymentIcon}>
-              <Ionicons name="phone-portrait-outline" size={20} color="#1D3A8A" />
+              <Image
+                source={require("../../assets/images/yas-logo.png")}
+                style={{ width: 32, height: 32, borderRadius: 6 }}
+                resizeMode="contain"
+              />
             </View>
             <View style={{ flex: 1 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                 <Text style={styles.paymentName}>Mix by Yas</Text>
-                <View style={styles.yasBadge}>
-                  <Text style={styles.yasBadgeText}>Togocel</Text>
-                </View>
               </View>
               <Text style={styles.paymentSub}>+228 99 45 67 89</Text>
             </View>
@@ -234,11 +236,10 @@ const styles = StyleSheet.create({
     borderWidth: 0.5, borderColor: Colors.border,
   },
   paymentIcon: {
-    width: 40, height: 40, borderRadius: 10,
-    backgroundColor: "#EEF2FF",
+    width: 48, height: 48, borderRadius: 12,
+    backgroundColor: "#1D3075",
     alignItems: "center", justifyContent: "center",
-  },
-  paymentName: { fontSize: 14, fontWeight: "600", color: Colors.dark },
+  },  paymentName: { fontSize: 14, fontWeight: "600", color: Colors.dark },
   yasBadge: {
     backgroundColor: "#FBBF24", paddingHorizontal: 6,
     paddingVertical: 2, borderRadius: 6,
