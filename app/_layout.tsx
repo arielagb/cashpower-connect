@@ -1,10 +1,14 @@
 import { Stack } from "expo-router";
-import { StatusBar } from "expo-status-bar";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { StatusBar } from "react-native";
 
 export default function RootLayout() {
+  StatusBar.setBarStyle("light-content");
+  StatusBar.setBackgroundColor("#0D5C3A");
+  StatusBar.setTranslucent(false);
+
   return (
-    <>
-      <StatusBar style="light" />
+    <SafeAreaProvider>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="add-meter" />
@@ -12,6 +16,6 @@ export default function RootLayout() {
         <Stack.Screen name="otp" />
         <Stack.Screen name="success" />
       </Stack>
-    </>
+    </SafeAreaProvider>
   );
 }

@@ -167,10 +167,11 @@ export default function ConsoScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.primary },
   header: {
-    paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20,
+    paddingHorizontal: 20,
+    paddingTop: 48,  // ← augmente ici
+    paddingBottom: 20,
     backgroundColor: Colors.primary,
-  },
-  headerTitle: { color: Colors.white, fontSize: 20, fontWeight: "700" },
+  },  headerTitle: { color: Colors.white, fontSize: 20, fontWeight: "700" },
   body: {
     backgroundColor: Colors.surface,
     borderTopLeftRadius: 24, borderTopRightRadius: 24,

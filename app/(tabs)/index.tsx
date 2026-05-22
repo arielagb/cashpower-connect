@@ -4,24 +4,33 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   Modal,
   Animated,
   Dimensions,
 } from "react-native";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "../../constants/colors";
-import { mockMeters, mockUser, Meter } from "../../data/mockData";
+import { dataStore, mockUser, Meter } from "../../data/mockData";
 
 const { width } = Dimensions.get("window");
 
 export default function HomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const [meters, setMeters] = useState(dataStore.getMeters());
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const slideAnim = useRef(new Animated.Value(-width * 0.75)).current;
+
+  useEffect(() => {
+    const unsubscribe = dataStore.subscribe(() => {
+      setMeters([...dataStore.getMeters()]);
+    });
+    return unsubscribe;
+  }, []);
 
   const openDrawer = () => {
     setDrawerOpen(true);
@@ -40,9 +49,7 @@ export default function HomeScreen() {
     }).start(() => setDrawerOpen(false));
   };
 
-  const lowMeters = mockMeters.filter(
-    (m) => m.kwhRemaining <= m.alertThreshold
-  );
+  const lowMeters = meters.filter((m) => m.kwhRemaining <= m.alertThreshold);
 
   const getKwhColor = (meter: Meter) => {
     const pct = meter.kwhRemaining / meter.kwhTotal;
@@ -59,14 +66,19 @@ export default function HomeScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <View style={[styles.container, { backgroundColor: Colors.primary }]}>
+
       {/* DRAWER MENU */}
       {drawerOpen && (
         <Modal transparent animationType="none" onRequestClose={closeDrawer}>
           <TouchableOpacity style={styles.drawerOverlay} onPress={closeDrawer} activeOpacity={1}>
-            <Animated.View style={[styles.drawer, { transform: [{ translateX: slideAnim }] }]}>
+            <Animated.View
+              style={[
+                styles.drawer,
+                { transform: [{ translateX: slideAnim }], paddingTop: insets.top + 20 },
+              ]}
+            >
               <TouchableOpacity activeOpacity={1}>
-                {/* User info */}
                 <View style={styles.drawerHeader}>
                   <View style={styles.drawerAvatar}>
                     <Text style={styles.drawerAvatarText}>{mockUser.initials}</Text>
@@ -76,18 +88,22 @@ export default function HomeScreen() {
                     <Text style={styles.drawerPhone}>{mockUser.phone}</Text>
                   </View>
                 </View>
-                {/* Menu items */}
                 {[
-                  { icon: "home-outline", label: "Accueil" },
-                  { icon: "flash-outline", label: "Recharger" },
-                  { icon: "add-circle-outline", label: "Ajouter un compteur" },
-                  { icon: "bar-chart-outline", label: "Consommation" },
-                  { icon: "time-outline", label: "Historique" },
-                  { icon: "notifications-outline", label: "Alertes" },
-                  { icon: "settings-outline", label: "Paramètres" },
-                  { icon: "help-circle-outline", label: "Aide" },
+                  { icon: "home-outline", label: "Accueil", route: "/(tabs)" },
+                  { icon: "flash-outline", label: "Recharger", route: "/(tabs)/recharge" },
+                  { icon: "add-circle-outline", label: "Ajouter un compteur", route: "/add-meter" },
+                  { icon: "bar-chart-outline", label: "Consommation", route: "/(tabs)/conso" },
+                  { icon: "time-outline", label: "Historique", route: "/(tabs)/profil" },
+                  { icon: "settings-outline", label: "Paramètres", route: "/(tabs)/profil" },
                 ].map((item, i) => (
-                  <TouchableOpacity key={i} style={styles.drawerItem} onPress={closeDrawer}>
+                  <TouchableOpacity
+                    key={i}
+                    style={styles.drawerItem}
+                    onPress={() => {
+                      closeDrawer();
+                      router.push(item.route as any);
+                    }}
+                  >
                     <Ionicons name={item.icon as any} size={20} color={Colors.primary} />
                     <Text style={styles.drawerItemText}>{item.label}</Text>
                   </TouchableOpacity>
@@ -101,8 +117,12 @@ export default function HomeScreen() {
       {/* NOTIF PANEL */}
       {notifOpen && (
         <Modal transparent animationType="fade" onRequestClose={() => setNotifOpen(false)}>
-          <TouchableOpacity style={styles.notifOverlay} onPress={() => setNotifOpen(false)} activeOpacity={1}>
-            <View style={styles.notifPanel}>
+          <TouchableOpacity
+            style={styles.notifOverlay}
+            onPress={() => setNotifOpen(false)}
+            activeOpacity={1}
+          >
+            <View style={[styles.notifPanel, { marginTop: insets.top + 10 }]}>
               <Text style={styles.notifTitle}>Alertes</Text>
               {lowMeters.length === 0 ? (
                 <Text style={styles.notifEmpty}>Aucune alerte pour le moment</Text>
@@ -145,20 +165,19 @@ export default function HomeScreen() {
         {/* HERO CARD */}
         <View style={styles.heroCard}>
           <Text style={styles.heroLabel}>Compteur principal</Text>
-          <Text style={styles.heroMeterName}>{mockMeters[0].name}</Text>
+          <Text style={styles.heroMeterName}>{meters[0].name}</Text>
           <View style={styles.heroKwhRow}>
-            <Text style={styles.heroKwh}>{mockMeters[0].kwhRemaining}</Text>
+            <Text style={styles.heroKwh}>{meters[0].kwhRemaining}</Text>
             <Text style={styles.heroKwhUnit}> kWh restants</Text>
           </View>
-          <Text style={styles.heroRef}># {mockMeters[0].reference}</Text>
-          {/* Progress bar */}
+          <Text style={styles.heroRef}># {meters[0].reference}</Text>
           <View style={styles.progressBg}>
             <View
               style={[
                 styles.progressFill,
                 {
-                  width: `${(mockMeters[0].kwhRemaining / mockMeters[0].kwhTotal) * 100}%`,
-                  backgroundColor: getKwhColor(mockMeters[0]),
+                  width: `${Math.min((meters[0].kwhRemaining / meters[0].kwhTotal) * 100, 100)}%`,
+                  backgroundColor: getKwhColor(meters[0]),
                 },
               ]}
             />
@@ -170,9 +189,9 @@ export default function HomeScreen() {
           <Text style={styles.sectionTitle}>Actions rapides</Text>
           <View style={styles.actionGrid}>
             {[
-              { icon: "flash", label: "Recharger", color: Colors.primary, bg: Colors.primaryLight, route: "/recharge" },
+              { icon: "flash", label: "Recharger", color: Colors.primary, bg: Colors.primaryLight, route: "/(tabs)/recharge" },
               { icon: "add-circle", label: "Ajouter\ncompteur", color: Colors.primary, bg: Colors.primaryLight, route: "/add-meter" },
-              { icon: "time", label: "Historique", color: Colors.accent, bg: Colors.accentLight, route: "/(tabs)/conso" },
+              { icon: "time", label: "Historique", color: Colors.accent, bg: Colors.accentLight, route: "/(tabs)/profil" },
               { icon: "bar-chart", label: "Conso", color: Colors.accent, bg: Colors.accentLight, route: "/(tabs)/conso" },
             ].map((action, i) => (
               <TouchableOpacity
@@ -190,14 +209,16 @@ export default function HomeScreen() {
 
           {/* METERS LIST */}
           <Text style={styles.sectionTitle}>Mes compteurs</Text>
-          {mockMeters.map((meter) => {
+          {meters.map((meter) => {
             const status = getStatusLabel(meter);
-            const pct = (meter.kwhRemaining / meter.kwhTotal) * 100;
+            const pct = Math.min((meter.kwhRemaining / meter.kwhTotal) * 100, 100);
             return (
               <TouchableOpacity
                 key={meter.id}
                 style={styles.meterCard}
-                onPress={() => router.push({ pathname: "/recharge", params: { meterId: meter.id } })}
+                onPress={() =>
+                  router.push({ pathname: "/(tabs)/recharge", params: { meterId: meter.id } })
+                }
               >
                 <View style={styles.meterCardTop}>
                   <View>
@@ -230,19 +251,19 @@ export default function HomeScreen() {
           })}
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.primary },
+  container: { flex: 1 },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 12,
+    paddingTop: 48,  // ← augmente ici (était 12)
+    paddingBottom: 16,
     backgroundColor: Colors.primary,
   },
   headerGreeting: { color: "rgba(255,255,255,0.75)", fontSize: 13 },
@@ -255,13 +276,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.accent, borderWidth: 1, borderColor: Colors.primary,
   },
   heroCard: {
-    marginHorizontal: 16,
-    marginBottom: 4,
+    marginHorizontal: 16, marginBottom: 4,
     backgroundColor: "rgba(255,255,255,0.15)",
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.2)",
+    borderRadius: 16, padding: 16,
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.2)",
   },
   heroLabel: { color: "rgba(255,255,255,0.7)", fontSize: 11 },
   heroMeterName: { color: Colors.white, fontSize: 15, fontWeight: "600", marginTop: 2 },
@@ -271,20 +289,12 @@ const styles = StyleSheet.create({
   heroRef: { color: "rgba(255,255,255,0.6)", fontSize: 11, marginTop: 4, marginBottom: 10 },
   body: {
     backgroundColor: Colors.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    marginTop: 16,
-    padding: 20,
-    minHeight: 500,
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    marginTop: 16, padding: 20, minHeight: 500,
   },
   sectionTitle: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: Colors.muted,
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-    marginBottom: 12,
-    marginTop: 4,
+    fontSize: 12, fontWeight: "600", color: Colors.muted,
+    textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 12, marginTop: 4,
   },
   actionGrid: { flexDirection: "row", justifyContent: "space-between", marginBottom: 24 },
   actionBtn: { alignItems: "center", width: "23%" },
@@ -294,17 +304,10 @@ const styles = StyleSheet.create({
   },
   actionLabel: { fontSize: 11, color: Colors.muted, textAlign: "center", lineHeight: 15 },
   meterCard: {
-    backgroundColor: Colors.white,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 0.5,
-    borderColor: Colors.border,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    backgroundColor: Colors.white, borderRadius: 16, padding: 16, marginBottom: 12,
+    borderWidth: 0.5, borderColor: Colors.border,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
   },
   meterCardTop: { flexDirection: "row", justifyContent: "space-between", marginBottom: 8 },
   meterName: { fontSize: 15, fontWeight: "600", color: Colors.dark },
@@ -319,14 +322,10 @@ const styles = StyleSheet.create({
   progressBg: { height: 6, backgroundColor: Colors.border, borderRadius: 4, overflow: "hidden" },
   progressFill: { height: "100%", borderRadius: 4 },
   meterTap: { fontSize: 11, color: Colors.muted, marginTop: 8, textAlign: "right" },
-  // Drawer
   drawerOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", flexDirection: "row" },
   drawer: {
-    width: width * 0.75,
-    backgroundColor: Colors.white,
-    height: "100%",
-    paddingTop: 50,
-    paddingHorizontal: 20,
+    width: width * 0.75, backgroundColor: Colors.white,
+    height: "100%", paddingHorizontal: 20,
   },
   drawerHeader: {
     flexDirection: "row", alignItems: "center", gap: 12,
@@ -346,15 +345,20 @@ const styles = StyleSheet.create({
     paddingVertical: 14, borderBottomWidth: 0.5, borderBottomColor: Colors.border,
   },
   drawerItemText: { fontSize: 15, color: Colors.dark },
-  // Notif
-  notifOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.3)", justifyContent: "flex-start", alignItems: "flex-end", paddingTop: 60, paddingRight: 16 },
+  notifOverlay: {
+    flex: 1, backgroundColor: "rgba(0,0,0,0.3)",
+    justifyContent: "flex-start", alignItems: "flex-end", paddingRight: 16,
+  },
   notifPanel: {
-    backgroundColor: Colors.white, borderRadius: 16, padding: 16,
-    width: 280, shadowColor: "#000", shadowOffset: { width: 0, height: 4 },
+    backgroundColor: Colors.white, borderRadius: 16, padding: 16, width: 280,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15, shadowRadius: 12, elevation: 8,
   },
   notifTitle: { fontSize: 15, fontWeight: "700", color: Colors.dark, marginBottom: 12 },
   notifEmpty: { fontSize: 13, color: Colors.muted, textAlign: "center", paddingVertical: 8 },
-  notifItem: { flexDirection: "row", gap: 8, alignItems: "flex-start", paddingVertical: 8, borderBottomWidth: 0.5, borderBottomColor: Colors.border },
+  notifItem: {
+    flexDirection: "row", gap: 8, alignItems: "flex-start",
+    paddingVertical: 8, borderBottomWidth: 0.5, borderBottomColor: Colors.border,
+  },
   notifText: { fontSize: 13, color: Colors.dark, flex: 1, lineHeight: 18 },
 });

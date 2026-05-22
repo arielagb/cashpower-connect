@@ -1,34 +1,58 @@
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, SafeAreaView, TextInput, Alert,
+  StyleSheet, TextInput, Alert,
 } from "react-native";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "../../constants/colors";
-import { mockMeters } from "../../data/mockData";
+import { dataStore } from "../../data/mockData";
 
 const QUICK_AMOUNTS = [1000, 2000, 5000, 10000, 20000];
 
 export default function RechargeTab() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const defaultMeter = params.meterId
-    ? mockMeters.find((m) => m.id === params.meterId) ?? mockMeters[0]
-    : mockMeters[0];
+  const insets = useSafeAreaInsets();
 
+  const [meters, setMeters] = useState(dataStore.getMeters());
+  const defaultMeter = params.meterId
+    ? dataStore.getMeterById(params.meterId as string)
+    : meters[0];
   const [selectedMeter, setSelectedMeter] = useState(defaultMeter);
   const [amount, setAmount] = useState("5000");
+
+  useEffect(() => {
+    const unsubscribe = dataStore.subscribe(() => {
+      setMeters([...dataStore.getMeters()]);
+    });
+    return unsubscribe;
+  }, []);
+
+  const currentSelectedMeter = meters.find((m) => m.id === selectedMeter.id) || selectedMeter;
 
   const numAmount = parseInt(amount) || 0;
   const fee = Math.round(numAmount * 0.1);
   const total = numAmount + fee;
   const kwhEstimate = Math.round(numAmount / 120);
 
+  const handleConfirmRecharge = () => {
+    if (numAmount < 500) {
+      Alert.alert("Montant insuffisant", "Le minimum est 500 FCFA.");
+      return;
+    }
+    dataStore.rechargeMeter(currentSelectedMeter.id, numAmount);
+    router.push({
+      pathname: "/otp",
+      params: { amount, meterId: currentSelectedMeter.id },
+    });
+  };
+
   return (
-    <SafeAreaView style={styles.safe}>
+    <View style={[styles.container, { backgroundColor: Colors.primary }]}>
+
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Recharger</Text>
         </View>
@@ -36,26 +60,29 @@ export default function RechargeTab() {
         <View style={styles.body}>
           {/* Meter selector */}
           <Text style={styles.sectionTitle}>Choisir un compteur</Text>
-          {mockMeters.map((m) => (
-            <TouchableOpacity
-              key={m.id}
-              style={[styles.meterOption, selectedMeter.id === m.id && styles.meterOptionSelected]}
-              onPress={() => setSelectedMeter(m)}
-            >
-              <View style={styles.meterOptionLeft}>
-                <View style={[styles.meterOptionRadio, selectedMeter.id === m.id && styles.meterOptionRadioSelected]}>
-                  {selectedMeter.id === m.id && <View style={styles.meterOptionRadioDot} />}
+          {meters.map((m) => {
+            const isSelected = currentSelectedMeter.id === m.id;
+            return (
+              <TouchableOpacity
+                key={m.id}
+                style={[styles.meterOption, isSelected && styles.meterOptionSelected]}
+                onPress={() => setSelectedMeter(m)}
+              >
+                <View style={styles.meterOptionLeft}>
+                  <View style={[styles.meterOptionRadio, isSelected && styles.meterOptionRadioSelected]}>
+                    {isSelected && <View style={styles.meterOptionRadioDot} />}
+                  </View>
+                  <View>
+                    <Text style={styles.meterOptionName}>{m.name}</Text>
+                    <Text style={styles.meterOptionRef}># {m.reference}</Text>
+                  </View>
                 </View>
-                <View>
-                  <Text style={styles.meterOptionName}>{m.name}</Text>
-                  <Text style={styles.meterOptionRef}># {m.reference}</Text>
-                </View>
-              </View>
-              <Text style={[styles.meterOptionKwh, { color: m.kwhRemaining <= 5 ? Colors.accent : Colors.primary }]}>
-                {m.kwhRemaining} kWh
-              </Text>
-            </TouchableOpacity>
-          ))}
+                <Text style={[styles.meterOptionKwh, { color: m.kwhRemaining <= 5 ? Colors.accent : Colors.primary }]}>
+                  {m.kwhRemaining} kWh
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
 
           {/* Amount */}
           <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Montant de recharge</Text>
@@ -105,14 +132,19 @@ export default function RechargeTab() {
             </View>
           </View>
 
-          {/* Payment method */}
+          {/* Payment method — Yas */}
           <Text style={[styles.sectionTitle, { marginTop: 8 }]}>Méthode de paiement</Text>
           <View style={styles.paymentCard}>
             <View style={styles.paymentIcon}>
-              <Ionicons name="phone-portrait-outline" size={20} color={Colors.primary} />
+              <Ionicons name="phone-portrait-outline" size={20} color="#1D3A8A" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.paymentName}>Flooz / Togocel</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Text style={styles.paymentName}>Mix by Yas</Text>
+                <View style={styles.yasBadge}>
+                  <Text style={styles.yasBadgeText}>Togocel</Text>
+                </View>
+              </View>
               <Text style={styles.paymentSub}>+228 99 45 67 89</Text>
             </View>
             <Ionicons name="checkmark-circle" size={22} color={Colors.primary} />
@@ -121,30 +153,25 @@ export default function RechargeTab() {
           {/* CTA */}
           <TouchableOpacity
             style={[styles.btnPrimary, numAmount < 500 && styles.btnDisabled]}
-            onPress={() => {
-              if (numAmount < 500) {
-                Alert.alert("Montant insuffisant", "Le minimum est 500 FCFA.");
-                return;
-              }
-              router.push({ pathname: "/otp", params: { amount, meterId: selectedMeter.id } });
-            }}
+            onPress={handleConfirmRecharge}
           >
             <Ionicons name="flash" size={18} color={Colors.white} />
             <Text style={styles.btnPrimaryText}>Confirmer la recharge</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.primary },
+  container: { flex: 1 },
   header: {
-    paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20,
+    paddingHorizontal: 20,
+    paddingTop: 48,  // ← augmente ici (était 12)
+    paddingBottom: 20,
     backgroundColor: Colors.primary,
-  },
-  headerTitle: { color: Colors.white, fontSize: 20, fontWeight: "700" },
+  },  headerTitle: { color: Colors.white, fontSize: 20, fontWeight: "700" },
   body: {
     backgroundColor: Colors.surface,
     borderTopLeftRadius: 24, borderTopRightRadius: 24,
@@ -157,8 +184,7 @@ const styles = StyleSheet.create({
   meterOption: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     padding: 14, borderRadius: 12, borderWidth: 1.5,
-    borderColor: Colors.border, marginBottom: 8,
-    backgroundColor: Colors.white,
+    borderColor: Colors.border, marginBottom: 8, backgroundColor: Colors.white,
   },
   meterOptionSelected: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
   meterOptionLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
@@ -209,10 +235,15 @@ const styles = StyleSheet.create({
   },
   paymentIcon: {
     width: 40, height: 40, borderRadius: 10,
-    backgroundColor: Colors.primaryLight,
+    backgroundColor: "#EEF2FF",
     alignItems: "center", justifyContent: "center",
   },
   paymentName: { fontSize: 14, fontWeight: "600", color: Colors.dark },
+  yasBadge: {
+    backgroundColor: "#FBBF24", paddingHorizontal: 6,
+    paddingVertical: 2, borderRadius: 6,
+  },
+  yasBadgeText: { fontSize: 9, fontWeight: "700", color: "#1D3A8A" },
   paymentSub: { fontSize: 12, color: Colors.muted, marginTop: 1 },
   btnPrimary: {
     backgroundColor: Colors.primary, borderRadius: 14,

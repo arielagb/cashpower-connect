@@ -19,7 +19,7 @@ export type RechargeHistory = {
   token: string;
 };
 
-export const mockMeters: Meter[] = [
+const INITIAL_METERS: Meter[] = [
   {
     id: "1",
     name: "Maison Lomé",
@@ -51,6 +51,52 @@ export const mockMeters: Meter[] = [
     weeklyConsumption: [10, 8, 14, 9],
   },
 ];
+
+class MockDataManager {
+  private meters: Meter[] = JSON.parse(JSON.stringify(INITIAL_METERS));
+  private listeners: Set<() => void> = new Set();
+
+  getMeters(): Meter[] {
+    return this.meters;
+  }
+
+  getMeterById(id: string): Meter {
+    return this.meters.find((m) => m.id === id) || this.meters[0];
+  }
+
+  subscribe(listener: () => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  private notify() {
+    this.listeners.forEach((listener) => listener());
+  }
+
+  rechargeMeter(meterId: string, amount: number) {
+    const meter = this.meters.find((m) => m.id === meterId);
+    if (meter) {
+      const kwhGained = Math.round(amount / 120);
+      meter.kwhRemaining = parseFloat((meter.kwhRemaining + kwhGained).toFixed(1));
+      if (meter.kwhRemaining > meter.kwhTotal) {
+        meter.kwhTotal = meter.kwhRemaining + 10;
+      }
+      const newHistory: RechargeHistory = {
+        id: "h_" + Date.now(),
+        date: new Date().toISOString().split("T")[0],
+        amount: amount,
+        kwh: kwhGained,
+        token: Math.floor(1000 + Math.random() * 9000).toString(),
+      };
+      meter.history = [newHistory, ...meter.history];
+      this.notify();
+    }
+  }
+}
+
+export const dataStore = new MockDataManager();
+
+export const mockMeters = dataStore.getMeters();
 
 export const mockUser = {
   name: "Koffi Agbenowu",
