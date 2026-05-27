@@ -86,7 +86,7 @@ class MockDataManager {
         date: new Date().toISOString().split("T")[0],
         amount: amount,
         kwh: kwhGained,
-        token: Math.floor(1000 + Math.random() * 9000).toString(),
+        token:Array.from({length: 20}, () => Math.floor(Math.random() * 10)).join(''),
       };
       meter.history = [newHistory, ...meter.history];
       this.notify();

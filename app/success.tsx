@@ -11,7 +11,7 @@ export default function SuccessScreen() {
   const params = useLocalSearchParams();
   const meter = mockMeters.find((m) => m.id === params.meterId) ?? mockMeters[0];
   const amount = parseInt(params.amount as string) || 5000;
-  const token = (params.token as string) || "4421";
+  const token = Array.from({length: 24}, () => Math.floor(Math.random() * 10)).join('');
   const kwh = Math.round(amount / 120);
 
   return (
@@ -32,10 +32,11 @@ export default function SuccessScreen() {
         <View style={styles.tokenCard}>
           <View style={styles.tokenHeader}>
             <Ionicons name="key-outline" size={18} color={Colors.primary} />
-            <Text style={styles.tokenLabel}>Code à entrer sur le compteur</Text>
+            <Text style={styles.tokenLabel}>Code entré sur le compteur</Text>
           </View>
-          <Text style={styles.tokenCode}>{token}</Text>
-          <Text style={styles.tokenNote}>Appuyez sur ENTRÉE après avoir saisi le code</Text>
+          <Text style={styles.tokenCode}>
+            {token.match(/.{1,4}/g)?.join(' ')}
+          </Text>
         </View>
 
         {/* Summary */}
@@ -91,8 +92,7 @@ const styles = StyleSheet.create({
   },
   tokenHeader: { flexDirection: "row", gap: 6, alignItems: "center", marginBottom: 10 },
   tokenLabel: { fontSize: 13, color: Colors.primary, fontWeight: "600" },
-  tokenCode: { fontSize: 40, fontWeight: "800", color: Colors.primary, letterSpacing: 10 },
-  tokenNote: { fontSize: 11, color: Colors.primary, opacity: 0.7, marginTop: 8 },
+  tokenCode: { fontSize: 18, fontWeight: "800", color: Colors.primary, letterSpacing: 3 },  tokenNote: { fontSize: 11, color: Colors.primary, opacity: 0.7, marginTop: 8 },
   summaryCard: {
     backgroundColor: Colors.white, borderRadius: 14,
     width: "100%", marginBottom: 24,

@@ -36,8 +36,27 @@ export default function RechargeTab() {
   const numAmount = parseInt(amount) || 0;
   const fee = Math.round(numAmount * 0.1);
   const total = numAmount + fee;
-  const kwhEstimate = Math.round(numAmount / 120);
+  const calculateKwh = (montant: number): number => {
+    const fraisfixes = 2320; // prélevés à la première recharge du mois
+    const net = Math.max(0, montant - fraisfixes);
+    // Tranche 1 : 88 FCFA/kWh jusqu'à 120 kWh
+    // Tranche 2 : 123 FCFA/kWh de 121 à 350 kWh  
+    // Tranche 3 : 145 FCFA/kWh au-delà de 350 kWh
+    let kwh = 0;
+    let reste = net;
+    const t1 = 120 * 88; // 10 560 FCFA pour 120 kWh
+    const t2 = 230 * 123; // 28 290 FCFA pour 230 kWh supplémentaires
+    if (reste <= t1) {
+      kwh = Math.floor(reste / 88);
+    } else if (reste <= t1 + t2) {
+      kwh = 120 + Math.floor((reste - t1) / 123);
+    } else {
+      kwh = 350 + Math.floor((reste - t1 - t2) / 145);
+    }
+    return Math.min(kwh, 10000); // limite à 10 000 kWh
+  };
 
+const kwhEstimate = calculateKwh(numAmount);
   const handleConfirmRecharge = () => {
     if (numAmount < 500) {
       Alert.alert("Montant insuffisant", "Le minimum est 500 FCFA.");
@@ -123,6 +142,10 @@ export default function RechargeTab() {
               <Text style={styles.feeLabel}>Frais de service (10%)</Text>
               <Text style={[styles.feeVal, { color: Colors.accent }]}>{fee.toLocaleString("fr")} FCFA</Text>
             </View>
+            <View style={styles.feeRow}>
+              <Text style={styles.feeLabel}>Frais fixes CEET*</Text>
+              <Text style={[styles.feeVal, { color: Colors.muted }]}>2 320 FCFA</Text>
+            </View>
             <View style={[styles.feeRow, styles.feeTotalRow]}>
               <Text style={styles.feeTotalLabel}>Total à payer</Text>
               <Text style={styles.feeTotalVal}>{total.toLocaleString("fr")} FCFA</Text>
@@ -132,6 +155,9 @@ export default function RechargeTab() {
               <Text style={[styles.feeVal, { color: Colors.primary, fontWeight: "600" }]}>≈ {kwhEstimate} kWh</Text>
             </View>
           </View>
+          <Text style={{ fontSize: 10, color: Colors.muted, marginBottom: 12, marginTop: -8 }}>
+            * Prélevés à la 1ère recharge du mois (entretien + compteur + puissance)
+          </Text>
 
           {/* Payment method — Yas */}
           <Text style={[styles.sectionTitle, { marginTop: 8 }]}>Méthode de paiement</Text>

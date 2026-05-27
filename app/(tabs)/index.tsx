@@ -148,7 +148,7 @@ export default function HomeScreen() {
         {/* HEADER */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.headerGreeting}>Bonjour 👋</Text>
+            <Text style={styles.headerGreeting}>Bonjour </Text>
             <Text style={styles.headerName}>{mockUser.name}</Text>
           </View>
           <View style={styles.headerIcons}>
